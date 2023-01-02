@@ -43,15 +43,17 @@ REGEX_CONTINUE = "//a[contains(text(),'Continuar')]"
 def MY_CONDITION(month, day): return True # No custom condition wanted for the new scheduled date
 
 STEP_TIME = 0.5  # time between steps (interactions with forms): 0.5 seconds
-RETRY_TIME = 60*10  # wait time between retries/checks for available dates: 10 minutes
-EXCEPTION_TIME = 60*30  # wait time when an exception occurs: 30 minutes
-COOLDOWN_TIME = 60*60  # wait time when temporary banned (empty list): 60 minutes
+RETRY_TIME = 60 * random.randint(10, 20)  # wait time between retries/checks for available dates: between 10 and 20 minutes
+EXCEPTION_TIME = 60 * random.randint(30, 40)  # wait time when an exception occurs: between 30 and 40 minutes
+COOLDOWN_TIME = 60 * random.randint(61, 150)  # wait time when temporary banned (empty list): between 61 and 150 minutes
+# COOLDOWN_TIME = 60*60  # wait time when temporary banned (empty list): 60 minutes
 
 DATE_URL = f"https://ais.usvisa-info.com/{COUNTRY_CODE}/niv/schedule/{SCHEDULE_ID}/appointment/days/{FACILITY_ID}.json?appointments[expedite]=false"
 TIME_URL = f"https://ais.usvisa-info.com/{COUNTRY_CODE}/niv/schedule/{SCHEDULE_ID}/appointment/times/{FACILITY_ID}.json?date=%s&appointments[expedite]=false"
 APPOINTMENT_URL = f"https://ais.usvisa-info.com/{COUNTRY_CODE}/niv/schedule/{SCHEDULE_ID}/appointment"
 EXIT = False
 
+my_current_schedule_date = MY_SCHEDULE_DATE
 
 def send_notification(msg):
     print(f"Sending notification: {msg}")
@@ -184,10 +186,11 @@ def reschedule(date):
     }
 
     r = requests.post(APPOINTMENT_URL, headers=headers, data=data)
-    if(r.text.find('Successfully Scheduled') != -1):
+    # if(r.text.find('Successfully Scheduled') != -1):
+    if(r.text.find('éxito') != -1):
         msg = f"Rescheduled Successfully! {date} {time}"
         send_notification(msg)
-        EXIT = True
+        # EXIT = True
     else:
         msg = f"Reschedule Failed. {date} {time}"
         send_notification(msg)
@@ -212,9 +215,10 @@ last_seen = None
 
 def get_available_date(dates):
     global last_seen
+    global my_current_schedule_date
 
     def is_earlier(date):
-        my_date = datetime.strptime(MY_SCHEDULE_DATE, "%Y-%m-%d")
+        my_date = datetime.strptime(my_current_schedule_date, "%Y-%m-%d")
         new_date = datetime.strptime(date, "%Y-%m-%d")
         result = my_date > new_date
         print(f'Is {my_date} > {new_date}:\t{result}')
@@ -224,10 +228,13 @@ def get_available_date(dates):
     for d in dates:
         date = d.get('date')
         if is_earlier(date) and date != last_seen:
-            _, month, day = date.split('-')
-            if(MY_CONDITION(month, day)):
-                last_seen = date
-                return date
+            last_seen = date
+            my_current_schedule_date = date
+            return date
+            # _, month, day = date.split('-')
+            # if(MY_CONDITION(month, day)):
+            #     last_seen = date
+            #     return date
 
 
 def push_notification(dates):
@@ -250,10 +257,10 @@ if __name__ == "__main__":
             print()
 
             dates = get_date()[:5]
-            if not dates:
-              msg = "List is empty"
-              send_notification(msg)
-              EXIT = True
+            # if not dates:
+            #   msg = "List is empty"
+            #   send_notification(msg)
+            #   EXIT = True
             print_dates(dates)
             date = get_available_date(dates)
             print()
